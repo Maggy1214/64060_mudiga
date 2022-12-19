@@ -1,0 +1,107 @@
+---
+title: "Market Analysis Of Bathsoap Industry"
+author: "Meghana Udiga"
+date: "2022-12-16"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r, warning=FALSE, message=FALSE, include=FALSE}
+library(readr)
+library(tidyverse)
+library(caret)
+library(ggplot2)
+library(factoextra)
+library(cowplot)
+library(e1071)
+library(knitr)
+```
+
+
+#loading the dataset
+
+```{r}
+BathSoap <- read_csv("D:/meghana/Bath.csv")
+
+# Examining the dataset
+str(BathSoap)
+
+```
+
+
+#Data Preparation
+# Data cleaning and Exploratory Data Analysis
+```{r}
+# Converting all character variable values to numeric.
+BathSoap <- BathSoap %>%
+  mutate_if(
+    .predicate = is.character,
+    .funs = function(x)
+      as.numeric(str_replace_all(x, "%", ""))
+  )
+
+# Checking NULL values in the dataset at column level.
+any(colSums(is.na(BathSoap)) != 0)
+```
+
+
+**Step1: Applying K-Means model**
+```{r}
+# Scaling variables
+
+customized_variables <- BathSoap %>%
+  select(SEC,FEH,MT,SEX,AGE,EDU,HS,CHILD,CS,`Affluence Index`) %>% mutate_all(scale)
+customized_variables=na.omit(customized_variables)
+colSums(customized_variables)
+# Applying WSS and silhouette methods on scaled Demographic data
+customized_variables_wss <- fviz_nbclust(customized_variables, FUNcluster = kmeans,
+                                      method = "wss")
+customized_variables_sil <- fviz_nbclust(customized_variables, FUNcluster = kmeans,
+                                      method = "silhouette")
+
+plot_grid(customized_variables_wss, customized_variables_sil)
+```
+
+
+Obtained optimal clusters 2 in silhouette and 3 in WSS method, so verifying kmeans model on Demographic data with both `k = 2` and `k = 3`
+
+
+Applying kmeans model on scaled demographics data with `k = 2`
+```{r}
+set.seed(230)
+Demographic_kmeans2 <- kmeans(customized_variables,centers = 2, nstart = 25)
+silh_kmeans <- kmeans(customized_variables,centers =3,nstart = 25 )
+
+# Visualizing the cluster for k=2
+fviz_cluster(Demographic_kmeans2, data = customized_variables)
+# From the above graph, we can say that customer reviews are good in cluster 1 that means 
+# more loyal customers and satisfaction of customers is very high in the the cluster 1.
+# The Cluster 2 have minimal customer reviews towards the industry that means we need to improve services in cluster 2 factors.
+fviz_cluster(silh_kmeans,data = customized_variables)
+# From the above graph, we can say that cluster 3 has customer reviews are good that means more 
+# loyal customers and satisfaction of the customers is very high in cluster 3. 
+# The cluster 2 customer reviews are moderate and we need to improve services. 
+#The cluster 1 has very minimal customer reviews towards the industry. we need to improve serves with high priority. 
+
+```
+```{r}
+BathSoap %>% mutate(Cluster = Demographic_kmeans2$cluster) %>% group_by(Cluster)%>% summarise_all("mean")
+
+# From the above table, we can say that 
+# In Cluster 1, the mean values of the  factors like SEC, FEH, MT, SEX,AGE,EDU,HS more when compared to the cluster 2.
+# In cluster 2, the mean values of child is more that means the child purchases more in cluster 2 when compared to the cluster 1.
+```
+```{r}
+BathSoap %>% mutate(Cluster = silh_kmeans$cluster) %>% group_by(Cluster)%>% summarise_all("mean")
+# From the above table, we can say that 
+# Cluster 1 has more mean values than Cluster 2 and cluster 3 that means cluster 1 customers
+#have purchases more when compared to the cluster 2 and cluster 3. Cluster 2 have minimal customer weightage than all clusters.
+# Cluster 3 have moderate customer purchases when compared to remaining two clusters.
+```
